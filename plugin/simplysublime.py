@@ -1,5 +1,4 @@
 import vim
-from .. import match_all
 
 # from CPSM plugin
 def _escape_and_quote(s):
