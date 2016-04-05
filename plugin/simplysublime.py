@@ -113,7 +113,7 @@ def fuzzy(pattern, string):
                     last_seps += 1
 
         # elif str_is_sep and pattern_is_sep:
-    elif str_is_sep and pattern_char in SEPARATORS:
+        elif str_is_sep and pattern_char in SEPARATORS:
         # print '  matched SEP'
             score += SEPARATOR_MATCH_BONUS
             sep_matches += 1
