@@ -8,14 +8,17 @@ def get_names():
 
     return lines
 
-def match_all(items, pattern):
+def match_all(items, pattern, limit=10):
 
     results = []
     for item in items:
         results.append(fuzzy(pattern, item))
 
-    results = heapq.nlargest(10, results)
-    return results
+    results = heapq.nlargest(limit, results)
+
+    formatted_results = [format_match(r[1], r[2]) for r in results]
+
+    return formatted_results
 
 def format_match(indices, string, fmt='shell'):
 
@@ -27,12 +30,13 @@ def format_match(indices, string, fmt='shell'):
         s = '<b>'
         e = '</b>'
 
-    formatted_str = ""
+    formatted_str = []
     last_idx = 0
     for idx in indices:
-        formatted_str += string[last_idx:idx] + s + string[idx] + e
+        formatted_str.append('%s%s%s%s' % (string[last_idx:idx], s, string[idx], e))
         last_idx = idx + 1
-    formatted_str += string[last_idx:]
+    formatted_str.append(string[last_idx:])
+    formatted_str = ''.join(formatted_str)
 
     return formatted_str
 
@@ -57,11 +61,14 @@ def fuzzy(pattern, string):
     SEPARATORS = ('_', ' ', '/')
     PATH_SEPARATORS = ('/', '\\')
 
-    for str_idx in range(len(string)):
-        pattern_char = pattern[pattern_idx] if pattern_idx < len(pattern) else None
+    str_len = len(string)
+    pattern_len = len(pattern)
+
+    for str_idx in range(str_len):
+        pattern_char = pattern[pattern_idx] if pattern_idx < pattern_len else None
         str_char = string[str_idx]
 
-        pattern_is_sep = pattern_char in SEPARATORS
+        # pattern_is_sep = pattern_char in SEPARATORS
         str_is_sep = str_char in SEPARATORS
         # print 'checking %s against %s [%s, %s]' % (pattern_char, str_char, pattern_idx, str_idx)
         if pattern_char and pattern_char.lower() == str_char.lower():
@@ -78,7 +85,8 @@ def fuzzy(pattern, string):
                     score += LAST_WAS_SEPARATOR_BONUS
                     last_seps += 1
 
-        elif str_is_sep and pattern_is_sep:
+        # elif str_is_sep and pattern_is_sep:
+        elif str_is_sep and pattern_char in SEPARATORS:
             # print '  matched SEP'
             score += SEPARATOR_MATCH_BONUS
             sep_matches += 1
@@ -89,27 +97,27 @@ def fuzzy(pattern, string):
 
     run_length = 0
     gaps = 0
-    runs = []
+    # runs = []
     for last_idx, idx in pairwise(matched_indices):
         if idx - last_idx == 1:
             run_length += 1
         else:
-            runs.append(run_length+1)
+            # runs.append(run_length+1)
             score += (run_length + 1) ** 2 # + 1 because fence posts
             run_length = 0
             gaps += 1
 
     if run_length > 1:
         score += (run_length + 1) ** 2
-        runs.append(run_length+1)
+        # runs.append(run_length+1)
 
     score -= gaps * GAP_PENELTY
 
     # score -= len(string) - len(matched_indices)
 
-    fmt = format_match(matched_indices, string)
+    # fmt = format_match(matched_indices, string)
 
-    SCORE_REPORT = True
+    SCORE_REPORT = False
     if SCORE_REPORT:
         print "Matched Chars:\t%02d" % ( len(matched_indices) * MATCHED_CHAR_BONUS
                 )
@@ -121,7 +129,8 @@ def fuzzy(pattern, string):
         # print "- Len:\t\t%02d" % (len(string) - len(matched_indices))
         print score, fmt, '\n'
 
-    return score, fmt
+    # return score, fmt
+    return score, matched_indices, string
 
 def pairwise(iterable):
     """ Creates an iterator that iterates the original in (n, n+1) pairs
