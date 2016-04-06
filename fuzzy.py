@@ -4,7 +4,6 @@ import heapq
 def get_names():
     with open('files') as f:
         lines = f.readlines()
-        lines = [l.strip().strip(',').strip('"') for l in lines]
 
     return lines
 
@@ -16,7 +15,7 @@ def match_all(items, pattern, limit=10):
 
     results = heapq.nlargest(limit, results)
 
-    formatted_results = [format_match(r[1], r[2]) for r in results]
+    formatted_results = [(r[0], format_match(r[1], r[2])) for r in results]
 
     return formatted_results
 
