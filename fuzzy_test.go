@@ -18,6 +18,6 @@ func BenchmarkMatchAllN(b *testing.B) {
 	pattern := "cont test acc"
 
 	for n := 0; n < b.N; n++ {
-		matchAllN(corpus, pattern)
+		results = matchAllN(corpus, pattern)
 	}
 }

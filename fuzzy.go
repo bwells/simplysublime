@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"container/heap"
+	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -19,9 +21,9 @@ func fuzzy(pattern string, str string) (score int, matched_indices []int) {
 	score = 0
 	matched_indices = make([]int, 0, 100)
 	last_str_was_sep := true
-	sep_matches := 0
-	last_seps := 0
-	path_last_seps := 0
+	// sep_matches := 0
+	// last_seps := 0
+	// path_last_seps := 0
 
 	pattern_idx := 0
 
@@ -40,9 +42,9 @@ func fuzzy(pattern string, str string) (score int, matched_indices []int) {
 		}
 		str_char := string(str[str_idx])
 
-		str_isSep := false
+		str_is_sep := false
 		if isSep(str_char) {
-			str_isSep = true
+			str_is_sep = true
 		}
 
 		if pattern_char != "" && strings.ToLower(pattern_char) == strings.ToLower(str_char) {
@@ -53,19 +55,19 @@ func fuzzy(pattern string, str string) (score int, matched_indices []int) {
 			if last_str_was_sep {
 				if isPathSep(last_str_char) {
 					score += LastWasPathSeparatorBonus
-					path_last_seps += 1
+					// path_last_seps += 1
 				} else {
 					score += LastWasSeparatorBonus
-					last_seps += 1
+					// last_seps += 1
 				}
 			}
-		} else if str_isSep && isSep(pattern_char) {
+		} else if str_is_sep && isSep(pattern_char) {
 			score += SeparatorMatchBonus
-			sep_matches += 1
+			// sep_matches += 1
 			pattern_idx += 1
 		}
 
-		last_str_was_sep = str_isSep
+		last_str_was_sep = str_is_sep
 		last_str_char = str_char
 	}
 
@@ -187,17 +189,18 @@ func matchAll(items []string, pattern string) []string {
 	return results
 }
 
-func matchAllN(items []string, pattern string) {
+func matchAllN(items []string, pattern string) []string {
 
-	c1 := make(chan matchResult, 3000)
-	c2 := make(chan matchResult, 3000)
+	ch := make(chan matchResult, 100)
 	done := make(chan bool, 1)
 
 	h := &matchResultHeap{}
 	heap.Init(h)
 
+	workers := runtime.NumCPU()
+
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(workers)
 
 	var final sync.WaitGroup
 	final.Add(1)
@@ -209,27 +212,46 @@ func matchAllN(items []string, pattern string) {
 			r := matchResult{score: score * -1, indices: indices, str: item}
 			c <- r
 		}
-		close(c)
 	}
 
-	go producer(items[0:2000], c1)
-	go producer(items[2000:len(items)], c2)
+	chunk_size := len(items) / workers
+	for i := 0; i < workers; i++ {
+		start := i * chunk_size
+		end := (i + 1) * chunk_size
+		if end > len(items) {
+			end = len(items)
+		}
+		go producer(items[start:end], ch)
+	}
 
 	results := make([]string, 10)
+
+	drain := func() {
+		for {
+			select {
+			case r := <-ch:
+				heap.Push(h, r)
+			default:
+				return
+			}
+		}
+	}
 
 	go func() {
 		for {
 			select {
-			case r1 := <-c1:
-				heap.Push(h, r1)
-			case r2 := <-c2:
-				heap.Push(h, r2)
+			case r := <-ch:
+				heap.Push(h, r)
 			case <-done:
+
+				// drain the rest of the content of the channel
+				drain()
+
 				for i := 0; i < 10; i++ {
 					r := heap.Pop(h).(matchResult)
 					results[i] = formatMatch(r.indices, r.str)
-					// fmt.Println(formatMatch(r.indices, r.str))
 				}
+
 				final.Done()
 				return
 			}
@@ -243,8 +265,8 @@ func matchAllN(items []string, pattern string) {
 	}()
 
 	final.Wait()
-	// return results
 
+	return results
 }
 
 func loadFile(filename string) []string {
@@ -289,10 +311,10 @@ func main() {
 	// 	"erp/controllers/testing/emailinvoicerecipients.py",
 	// 	"erp/automated_tests/tests/controllers/test_transactions.py",
 	// }
-	matchAllN(corpus, pattern)
+	results := matchAllN(corpus, pattern)
 	// results := matchAll(corpus, pattern)
-	// for _, result := range results {
-	// 	fmt.Println(result)
-	// }
+	for _, result := range results {
+		fmt.Println(result)
+	}
 
 }
