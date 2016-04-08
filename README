@@ -1,0 +1,4 @@
+Very WIP vim plugin for file name matching in the spirit of Sublime Text and Textmate.
+
+Existing python implementation is functional with ctrlp integration, but pretty slow. The Go implementation is fast, but no vim integration yet.
+
